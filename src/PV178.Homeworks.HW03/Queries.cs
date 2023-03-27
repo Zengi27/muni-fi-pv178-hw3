@@ -47,11 +47,28 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> InfoAboutPeopleThatNamesStartsWithCAndWasInBahamasQuery()
         {
-            var tmp = DataContext.Countries
-                .Where(c => c.Name == "Bohamas");
+            var attackedPeople = DataContext.Countries
+                .Where(c => c.Name == "Bahamas")
+                .Join(DataContext.SharkAttacks,
+                    c => c.Id,
+                    sa => sa.CountryId,
+                    (c, sa) => new { c, sa })
+                .Join(DataContext.SharkSpecies,
+                    csa => csa.sa.SharkSpeciesId,
+                    sharkSpecies => sharkSpecies.Id,
+                    (csa, sharkSpecies) => new { csa.c, csa.sa, sharkSpecies})
+                .Where(ss => ss.sharkSpecies.LatinName.StartsWith("I") || ss.sharkSpecies.LatinName.StartsWith("N"))
+                .Join(DataContext.AttackedPeople,
+                    csass => csass.sa.AttackedPersonId,
+                    person => person.Id,
+                    (csass, person) => new {csass.sharkSpecies, person})
+                .Select(ssp => $"{ssp.person.Name} was attacked in Bahamas by {ssp.sharkSpecies.LatinName}")
+                .ToList();
+
+            foreach (var array in attackedPeople.ToList()) 
+                Console.WriteLine(string.Join(" ", array));
             
-            // TODO...
-            throw new NotImplementedException();
+            return attackedPeople;
         }
 
         /// <summary>
@@ -68,8 +85,21 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public int FortunateSharkAttacksSumWithinMonarchyOrTerritoryQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var nonDemocracy = DataContext.Countries
+                .Where(c => c.GovernmentForm == GovernmentForm.Monarchy ||
+                            c.GovernmentForm == GovernmentForm.Territory);
+
+            var nonFatalSeverenity = DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity != AttackSeverenity.Fatal);
+
+            var sum = nonDemocracy
+                .Join(nonFatalSeverenity,
+                    country => country.Id,
+                    attack => attack.CountryId,
+                    (country, attack) => new { country, attack })
+                .Count();
+
+            return sum;
         }
 
         /// <summary>
@@ -190,8 +220,36 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> InfoAboutPeopleAndCountriesOnBorRAndFatalAttacksQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var fatalAttacks = DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal)
+                .Join(DataContext.SharkSpecies,
+                    attack => attack.SharkSpeciesId,
+                    species => species.Id,
+                    ((attack, species) => new {attack, species}));
+
+            var countries = DataContext.Countries
+                .Where(c => c.Name.StartsWith('B') || c.Name.StartsWith('R'));
+
+            var people = DataContext.AttackedPeople
+                .Where(p => !string.IsNullOrEmpty(p.Name) 
+                            && !char.IsDigit(p.Name[0]) 
+                            && char.IsUpper(p.Name[0]));
+
+            var result = fatalAttacks
+                .Join(countries,
+                    sa => sa.attack.CountryId,
+                    country => country.Id,
+                    (sa, country) => new { sa, country })
+                .Join(people,
+                    sac => sac.sa.attack.AttackedPersonId,
+                    person => person.Id,
+                    (sac, person) => new { Shark = sac.sa.species, Country = sac.country, Person = person })
+                .Select(sacp => $"{sacp.Person.Name} was attacked in {sacp.Country.Name} by {sacp.Shark.LatinName}")
+                .OrderBy(s => s)
+                .Take(5)
+                .ToList();
+
+            return result;
         }
 
         /// <summary>
@@ -219,8 +277,31 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> InfoAboutFinesInEuropeQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var europeanCountries = DataContext.Countries
+                .Where(c => c.Continent == "Europe" && c.Name?[0] >= 'A' && c.Name?[0] <= 'L');
+
+            var europeanAttacks = DataContext.SharkAttacks
+                .Join(europeanCountries,
+                    attack => attack.CountryId,
+                    country => country.Id,
+                    (attack, country) => new { Attack = attack, Country = country })
+                .Where(a => a.Attack.AttackSeverenity != AttackSeverenity.Unknown);
+
+            var fines = europeanAttacks
+                .GroupBy(a => a.Country)
+                .Select(group => new
+                {
+                    Country = group.Key,
+                    Fine = group.Sum(a => a.Attack.AttackSeverenity == AttackSeverenity.NonFatal ? 250 : 300)
+                })
+                .OrderByDescending(cf => cf.Fine)
+                .Select(cf => $"{cf.Country.Name}: {cf.Fine} {cf.Country.CurrencyCode}")
+                .ToList();
+
+            foreach (var array in fines) 
+                Console.WriteLine(string.Join(" ", array));
+            
+            return fines;
         }
 
         /// <summary>
@@ -239,8 +320,28 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public Dictionary<string, int> FiveSharkNamesWithMostFatalitiesQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var fatalAttack = DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal);
+
+            var result = fatalAttack
+                .Join(DataContext.SharkSpecies,
+                    attack => attack.SharkSpeciesId,
+                    species => species.Id,
+                    (attack, species) => new { Attack = attack, Species = species })
+                .GroupBy(a => a.Species)
+                .Select(group => new
+                {
+                    Species = group.Key,
+                    AttackCount = group.Count()
+                })
+                .OrderByDescending(sa => sa.AttackCount)
+                .Take(5)
+                .ToDictionary(sa => sa.Species.Name!, sa => sa.AttackCount);
+
+            foreach (var array in result.ToList()) 
+                Console.WriteLine(string.Join(" ", array));
+
+            return result;
         }
 
         /// <summary>
@@ -260,8 +361,26 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public string StatisticsAboutGovernmentsQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var countriesCount = DataContext.Countries.Count;
+            
+            var governmentType = DataContext.Countries
+                .GroupBy(c => c.GovernmentForm)
+                .Select(group => new
+                {
+                    GovernmentForm = group.Key,
+                    Count = (double) group.Count() 
+                })
+                .ToList();
+
+            var result = governmentType
+                .OrderByDescending(g => g.Count)
+                .Select(g => $"{g.GovernmentForm}: {Math.Round(g.Count / countriesCount * 100, 1):F1}%")
+                .Aggregate((acc, curr) => $"{acc}, {curr}");
+
+
+            Console.WriteLine(result);
+
+            return result;
         }
 
         /// <summary>
@@ -284,7 +403,47 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> TigerSharkAttackZipQuery()
         {
-            // TODO...
+            var sharkAttack = DataContext.SharkAttacks
+                .Where(a => a.DateTime.Value.Year == 2001);
+
+            var tigerSharkAttack = sharkAttack
+                .Where(a => DataContext.SharkSpecies.Any(ss => a.SharkSpeciesId == ss.Id && ss.Name == "Tiger shark"))
+                .ToList();
+
+            foreach (var array in tigerSharkAttack) 
+                Console.WriteLine(string.Join(" ", array));
+            
+            var attackedPerson = DataContext.AttackedPeople
+                .Where(p => tigerSharkAttack.Any(tsa => tsa.AttackedPersonId == p.Id))
+                .Select(p => new
+                {
+                    Name = p.Name,
+                    PersonId = p.Id
+                });
+
+            foreach (var array in attackedPerson) 
+                Console.WriteLine(string.Join(" ", array));
+
+
+            var countries = tigerSharkAttack
+                .Select(a => a.CountryId)
+                .Distinct();
+            
+            foreach (var array in countries.ToList()) 
+                Console.WriteLine(string.Join(" ", array));
+            
+            // var result = attackedPerson.Zip(countries, (p, c) => new
+            //     {
+            //         AttackedPerson = p,
+            //         Country = c
+            //     })
+            //     .Select(pc => $"{pc.AttackedPerson.Name} was triggered in {pc.Country.Name ?? "Unknown country"}")
+            //     .ToList();
+            
+            // foreach (var array in result) 
+            //     Console.WriteLine(string.Join(" ", array));
+
+                
             throw new NotImplementedException();
         }
 
