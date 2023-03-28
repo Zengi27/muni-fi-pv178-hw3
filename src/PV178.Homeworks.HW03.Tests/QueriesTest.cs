@@ -146,7 +146,7 @@ namespace PV178.Homeworks.HW03.Tests
                 tuple => tuple.Item1,
                 tuple => tuple.Item2.Select(species => species.Id).ToList()
             );
-
+           
             Assert.IsTrue(ComplexDictionaryEquals(expected, actualDictionary, n => n));
         }
 
@@ -229,7 +229,10 @@ namespace PV178.Homeworks.HW03.Tests
                 "Lowell Lutz was tiggered in Unknown country"
             };
             var actual = Queries.TigerSharkAttackZipQuery();
-
+            
+            foreach (var array in actual) 
+                Console.WriteLine(string.Join(" ", array));
+            
             Assert.IsTrue(expected.SequenceEqual(actual));
         }
 

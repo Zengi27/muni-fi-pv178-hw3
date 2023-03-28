@@ -116,8 +116,53 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public Dictionary<string, string> MostProlificNicknamesInCountriesQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var southAmericaCountries = DataContext.Countries
+                .Where(c => c.Continent == "South America");
+            var sharkNicknames = southAmericaCountries
+                    .Join(DataContext.SharkAttacks,
+                        country => country.Id,
+                        attack => attack.CountryId,
+                        ((country, attack) => new { country, attack } ))
+                    .Join(DataContext.SharkSpecies,
+                        ca => ca.attack.SharkSpeciesId,
+                        species => species.Id,
+                        (ca, species) => new { Country = ca.country, Shark = species})
+                    .GroupBy(attack => attack.Country.Name)
+                    .Where(group => group
+                        .GroupBy(cs => cs.Shark.AlsoKnownAs)
+                        .Any(speciesGroup => !string.IsNullOrEmpty(speciesGroup.Key)))
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group
+                            .GroupBy(cs => cs.Shark.AlsoKnownAs)
+                            .OrderByDescending(speciesGroup => speciesGroup.Count())
+                            .ThenBy(speciesGroup => speciesGroup.Key)
+                            .FirstOrDefault(speciesGroup => !string.IsNullOrEmpty(speciesGroup.Key))
+                            ?.Key
+                    );
+            //         
+            //         .GroupBy(cs => new { cs.Country, cs.Shark.AlsoKnownAs })
+            //         .Select(group => new
+            //         {
+            //             CountryName = group.Key.Country.Name,
+            //             SharkNickname = group.Key.AlsoKnownAs,
+            //             AttackCount = group.Count()
+            //         })
+            //         .FirstOrDefault(group => !string.IsNullOrEmpty(group.SharkNickname))
+            //         .GroupBy(x => x.CountryName)
+            //         .Select(group => group.OrderByDescending(x => x.AttackCount).First())
+            //         .ToDictionary(x => x.CountryName, x => x.SharkNickname);
+            //
+            //
+            //     .
+            //
+            // FirstOrDefault(speciesGroup => !string.IsNullOrEmpty(speciesGroup.Key) || speciesGroup == group.First())
+            //     ?.Key
+            foreach (KeyValuePair<string, string> pair in sharkNicknames)
+            {
+                Console.WriteLine("{0}: {1}", pair.Key, pair.Value);
+            }
+            return sharkNicknames;
         }
 
         /// <summary>
@@ -131,8 +176,18 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<int> ThreeSharksOrderedByNumberOfAttacksOnMenQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            return DataContext.SharkAttacks
+                .Join(DataContext.AttackedPeople,
+                    attack => attack.AttackedPersonId,
+                    person => person.Id,
+                    (attack, person) => new { attack, person }
+                )
+                .Where(ac => ac.person.Sex == Sex.Male)
+                .GroupBy(sc => sc.attack.SharkSpeciesId)
+                .OrderByDescending(group => group.Count())
+                .Take(3)
+                .Select(group => group.Key)
+                .ToList();
         }
 
         /// <summary>
@@ -150,8 +205,22 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public Dictionary<string, double> SwimmerAttacksSharkAverageSpeedQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            return DataContext.SharkAttacks
+                .Where(a => a.Activity.Contains("Swimming") || a.Activity.Contains("swimming"))
+                .Join(DataContext.Countries,
+                    a => a.CountryId,
+                    c => c.Id,
+                    (a, c) => new { a, c }
+                )
+                .Join(DataContext.SharkSpecies,
+                    ac => ac.a.SharkSpeciesId,
+                    s => s.Id,
+                    (ac, s) => new { ac, s }
+                )
+                .Where(acs => acs.s.TopSpeed.HasValue)
+                .GroupBy(acs => acs.ac.c.Continent)
+                .ToDictionary(group => group.Key,
+                    group => Math.Round(group.Average(acs => acs.s.TopSpeed.Value), 2));
         }
 
         /// <summary>
@@ -167,8 +236,24 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> NonFatalAttemptOfZambeziSharkOnPeopleBetweenDAndKQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            return DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity == AttackSeverenity.NonFatal
+                            && a.Type == AttackType.Boating
+                            && a.DateTime >= new DateTime(1960, 3, 3))
+                .Join(DataContext.SharkSpecies,
+                    a => a.SharkSpeciesId,
+                    s => s.Id,
+                    (a, s) => new { a, s }
+                )
+                .Where(sa => sa.s.AlsoKnownAs == "Zambesi shark")
+                .Join(DataContext.AttackedPeople,
+                    sa => sa.a.AttackedPersonId,
+                    p => p.Id,
+                    (sa, p) => new { sa, p }
+                )
+                .Where(sp => sp.p.Name[0] >= 'D' && sp.p.Name[0] <= 'K')
+                .Select(sp => sp.p.Name)
+                .ToList();
         }
 
         /// <summary>
@@ -184,8 +269,33 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<Tuple<string, List<SharkSpecies>>> LightestSharksInSouthAmericaQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var lightestSharksAttacks = DataContext.SharkSpecies
+                .OrderBy(s => s.Weight)
+                .Take(10)
+                .Join(DataContext.SharkAttacks,
+                    species => species.Id,
+                    attack => attack.SharkSpeciesId,
+                    (species, attack) => new { species, attack });
+
+            var southAmericanCountries = DataContext.Countries
+                .Where(c => c.Continent == "South America");
+
+            
+            var result = southAmericanCountries
+                .Select(country => new Tuple<string, List<SharkSpecies>>(
+                    country.Name,
+                    lightestSharksAttacks
+                        .Where(sa => sa.attack.CountryId == country.Id)
+                        .Select(sa => sa.species)
+                        .Distinct()
+                        .ToList()
+                ))
+                .ToList();
+            
+            foreach (var array in result.ToList()) 
+                Console.WriteLine(string.Join(" ", array));
+
+            return result;
         }
 
         /// <summary>
@@ -200,8 +310,19 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public bool FiftySixMaxSpeedAndAgeQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            bool result = DataContext.SharkSpecies
+                .Where(species => species.TopSpeed >= 56)
+                .All(species => DataContext.SharkAttacks
+                    .Where(attack => attack.SharkSpeciesId == species.Id)
+                    .Join(DataContext.AttackedPeople,
+                        attack => attack.AttackedPersonId,
+                        person => person.Id,
+                        (attack, person) => new { person } )
+                    .Any(p => p.person.Age > 56));
+            
+            Console.WriteLine(result);
+
+            return result;
         }
 
         /// <summary>
