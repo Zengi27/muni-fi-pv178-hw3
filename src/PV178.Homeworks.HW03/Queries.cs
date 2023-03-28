@@ -410,8 +410,8 @@ namespace PV178.Homeworks.HW03
                 .Where(a => DataContext.SharkSpecies.Any(ss => a.SharkSpeciesId == ss.Id && ss.Name == "Tiger shark"))
                 .ToList();
 
-            foreach (var array in tigerSharkAttack) 
-                Console.WriteLine(string.Join(" ", array));
+            // foreach (var array in tigerSharkAttack) 
+            //     Console.WriteLine(string.Join(" ", array));
             
             var attackedPerson = DataContext.AttackedPeople
                 .Where(p => tigerSharkAttack.Any(tsa => tsa.AttackedPersonId == p.Id))
@@ -421,30 +421,32 @@ namespace PV178.Homeworks.HW03
                     PersonId = p.Id
                 });
 
-            foreach (var array in attackedPerson) 
-                Console.WriteLine(string.Join(" ", array));
+            // foreach (var array in attackedPerson) 
+            //     Console.WriteLine(string.Join(" ", array));
 
 
             var countries = tigerSharkAttack
-                .Select(a => a.CountryId)
-                .Distinct();
+                .Select(a => new
+                {
+                    Country = DataContext.Countries.FirstOrDefault(c => c.Id == a.CountryId)?.Name ?? "Unknown country"
+                });
             
-            foreach (var array in countries.ToList()) 
-                Console.WriteLine(string.Join(" ", array));
+            // foreach (var array in countries.ToList()) 
+            //     Console.WriteLine(string.Join(" ", array));
             
-            // var result = attackedPerson.Zip(countries, (p, c) => new
-            //     {
-            //         AttackedPerson = p,
-            //         Country = c
-            //     })
-            //     .Select(pc => $"{pc.AttackedPerson.Name} was triggered in {pc.Country.Name ?? "Unknown country"}")
-            //     .ToList();
+            var result = attackedPerson.Zip(countries, (p, c) => new
+                {
+                    AttackedPerson = p,
+                    CountryName = c.Country
+                })
+                .Select(pc => $"{pc.AttackedPerson.Name} was tiggered in {pc.CountryName}")
+                .ToList();
             
             // foreach (var array in result) 
             //     Console.WriteLine(string.Join(" ", array));
 
-                
-            throw new NotImplementedException();
+
+            return result;
         }
 
         /// <summary>
@@ -462,8 +464,23 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public string LongestVsShortestSharkQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var totalAttacks = DataContext.SharkAttacks.Count;
+
+            var orderedSharks = DataContext.SharkSpecies.OrderByDescending(s => s.Length);
+            var largestShark = orderedSharks.First();
+            var smallestShark = orderedSharks.Last();
+            
+            var largestSharkAttacks = DataContext.SharkAttacks.Count(sa => sa.SharkSpeciesId == largestShark.Id);
+            var smallestSharkAttacks = DataContext.SharkAttacks.Count(sa => sa.SharkSpeciesId == smallestShark.Id);
+
+            var largestSharkPercentage = Math.Round((double)largestSharkAttacks / totalAttacks * 100, 1);
+            var smallestSharkPercentage = Math.Round((double)smallestSharkAttacks / totalAttacks * 100, 1);
+
+            var result = $"{largestSharkPercentage:F1}% vs {smallestSharkPercentage:F1}%";
+
+            Console.WriteLine(result);
+
+            return result;
         }
 
         /// <summary>
@@ -477,8 +494,24 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public int SafeCountriesQuery()
         {
-            // TODO...
-            throw new NotImplementedException();
+            var countryCount = DataContext.Countries.Count;
+            Console.WriteLine($"Country {countryCount}");
+            
+            var fatalAttacks = DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal)
+                .Join(DataContext.Countries,
+                    attack => attack.CountryId,
+                    country => country.Id,
+                    (attack, country) => new { attack, country })
+                .Select(sc => sc.country.Name)
+                .Distinct()
+                .Count();
+
+
+            var result = countryCount - fatalAttacks;
+            Console.WriteLine(result);
+           
+            return result;
         }
     }
 }
