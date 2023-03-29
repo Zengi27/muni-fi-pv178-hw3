@@ -47,28 +47,29 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> InfoAboutPeopleThatNamesStartsWithCAndWasInBahamasQuery()
         {
-            var attackedPeople = DataContext.Countries
-                .Where(c => c.Name == "Bahamas")
-                .Join(DataContext.SharkAttacks,
-                    c => c.Id,
-                    sa => sa.CountryId,
-                    (c, sa) => new { c, sa })
-                .Join(DataContext.SharkSpecies,
-                    csa => csa.sa.SharkSpeciesId,
-                    sharkSpecies => sharkSpecies.Id,
-                    (csa, sharkSpecies) => new { csa.c, csa.sa, sharkSpecies})
-                .Where(ss => ss.sharkSpecies.LatinName.StartsWith("I") || ss.sharkSpecies.LatinName.StartsWith("N"))
+            var bahamasCountry = DataContext.Countries
+                .Where(c => c.Name == "Bahamas");
+
+            var sharkSpeciesLatinNameIorN = DataContext.SharkSpecies
+                .Where(s => s.LatinName != null && (s.LatinName.StartsWith("I") || s.LatinName.StartsWith("N")));
+
+            var result = DataContext.SharkAttacks
+                .Join(bahamasCountry,
+                    attack => attack.CountryId,
+                    country => country.Id,
+                    (attack, _) => attack)
+                .Join(sharkSpeciesLatinNameIorN,
+                    attack => attack.SharkSpeciesId,
+                    species => species.Id,
+                    (attack, species) => new { attack, species })
                 .Join(DataContext.AttackedPeople,
-                    csass => csass.sa.AttackedPersonId,
+                    sa => sa.attack.AttackedPersonId,
                     person => person.Id,
-                    (csass, person) => new {csass.sharkSpecies, person})
-                .Select(ssp => $"{ssp.person.Name} was attacked in Bahamas by {ssp.sharkSpecies.LatinName}")
+                    (sa, person) => new { sa.species, person })
+                .Select(np => $"{np.person.Name} was attacked in Bahamas by {np.species.LatinName}")
                 .ToList();
 
-            foreach (var array in attackedPeople.ToList()) 
-                Console.WriteLine(string.Join(" ", array));
-            
-            return attackedPeople;
+            return result;
         }
 
         /// <summary>
@@ -85,21 +86,21 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public int FortunateSharkAttacksSumWithinMonarchyOrTerritoryQuery()
         {
-            var nonDemocracy = DataContext.Countries
+            var nonDemocracyCountries = DataContext.Countries
                 .Where(c => c.GovernmentForm == GovernmentForm.Monarchy ||
                             c.GovernmentForm == GovernmentForm.Territory);
 
-            var nonFatalSeverenity = DataContext.SharkAttacks
+            var nonFatalAttacks = DataContext.SharkAttacks
                 .Where(a => a.AttackSeverenity != AttackSeverenity.Fatal);
 
-            var sum = nonDemocracy
-                .Join(nonFatalSeverenity,
+            var result = nonDemocracyCountries
+                .Join(nonFatalAttacks,
                     country => country.Id,
                     attack => attack.CountryId,
                     (country, attack) => new { country, attack })
                 .Count();
 
-            return sum;
+            return result;
         }
 
         /// <summary>
@@ -618,7 +619,7 @@ namespace PV178.Homeworks.HW03
                     country => country.Id,
                     attack => attack.CountryId,
                     (country, fatalAttack) => new { country, fatalAttack })
-                .Where(ca => !ca.fatalAttack.Any())
+                .Where(ca =>  !ca.fatalAttack.Any())
                 .Select(ca => ca.country.Name)
                 .Count();
 
