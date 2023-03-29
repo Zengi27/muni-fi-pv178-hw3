@@ -586,22 +586,17 @@ namespace PV178.Homeworks.HW03
         public string LongestVsShortestSharkQuery()
         {
             var totalAttacks = DataContext.SharkAttacks.Count;
-
-            var orderedSharks = DataContext.SharkSpecies.OrderByDescending(s => s.Length);
-            var largestShark = orderedSharks.First();
-            var smallestShark = orderedSharks.Last();
             
-            var largestSharkAttacks = DataContext.SharkAttacks.Count(sa => sa.SharkSpeciesId == largestShark.Id);
-            var smallestSharkAttacks = DataContext.SharkAttacks.Count(sa => sa.SharkSpeciesId == smallestShark.Id);
+            var sharkStats = DataContext.SharkSpecies
+                .OrderByDescending(s => s.Length)
+                .Select(s => new
+                {
+                    Percentage = Math.Round((double)DataContext.SharkAttacks
+                        .Count(sa => sa.SharkSpeciesId == s.Id) / totalAttacks * 100, 1)
+                })
+                .ToList();
 
-            var largestSharkPercentage = Math.Round((double)largestSharkAttacks / totalAttacks * 100, 1);
-            var smallestSharkPercentage = Math.Round((double)smallestSharkAttacks / totalAttacks * 100, 1);
-
-            var result = $"{largestSharkPercentage:F1}% vs {smallestSharkPercentage:F1}%";
-
-            Console.WriteLine(result);
-
-            return result;
+            return $"{sharkStats.First().Percentage:F1}% vs {sharkStats.Last().Percentage:F1}%";
         }
 
         /// <summary>
@@ -615,23 +610,18 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public int SafeCountriesQuery()
         {
-            var countryCount = DataContext.Countries.Count;
-            Console.WriteLine($"Country {countryCount}");
-            
-            var fatalAttacks = DataContext.SharkAttacks
-                .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal)
-                .Join(DataContext.Countries,
-                    attack => attack.CountryId,
+            var fatalSharkAttacks = DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal);
+
+            var result = DataContext.Countries
+                .GroupJoin(fatalSharkAttacks,
                     country => country.Id,
-                    (attack, country) => new { attack, country })
-                .Select(sc => sc.country.Name)
-                .Distinct()
+                    attack => attack.CountryId,
+                    (country, fatalAttack) => new { country, fatalAttack })
+                .Where(ca => !ca.fatalAttack.Any())
+                .Select(ca => ca.country.Name)
                 .Count();
 
-
-            var result = countryCount - fatalAttacks;
-            Console.WriteLine(result);
-           
             return result;
         }
     }
