@@ -280,11 +280,10 @@ namespace PV178.Homeworks.HW03
 
             var southAmericanCountries = DataContext.Countries
                 .Where(c => c.Continent == "South America");
-
             
             var result = southAmericanCountries
                 .Select(country => new Tuple<string, List<SharkSpecies>>(
-                    country.Name,
+                    country.Name ?? string.Empty,
                     lightestSharksAttacks
                         .Where(sa => sa.attack.CountryId == country.Id)
                         .Select(sa => sa.species)
@@ -292,9 +291,6 @@ namespace PV178.Homeworks.HW03
                         .ToList()
                 ))
                 .ToList();
-            
-            foreach (var array in result.ToList()) 
-                Console.WriteLine(string.Join(" ", array));
 
             return result;
         }
@@ -318,11 +314,9 @@ namespace PV178.Homeworks.HW03
                     .Join(DataContext.AttackedPeople,
                         attack => attack.AttackedPersonId,
                         person => person.Id,
-                        (attack, person) => new { person } )
-                    .Any(p => p.person.Age > 56));
+                        (_, person) => person)
+                    .Any(p => p.Age > 56));
             
-            Console.WriteLine(result);
-
             return result;
         }
 
