@@ -347,22 +347,23 @@ namespace PV178.Homeworks.HW03
                 .Join(DataContext.SharkSpecies,
                     attack => attack.SharkSpeciesId,
                     species => species.Id,
-                    ((attack, species) => new {attack, species}));
+                    (attack, species) => new { attack, species });
 
             var countries = DataContext.Countries
-                .Where(c => c.Name.StartsWith('B') || c.Name.StartsWith('R'));
+                .Where(c => c.Name != null && 
+                            (c.Name.StartsWith('B') || c.Name.StartsWith('R')));
 
-            var people = DataContext.AttackedPeople
-                .Where(p => !string.IsNullOrEmpty(p.Name) 
-                            && !char.IsDigit(p.Name[0]) 
-                            && char.IsUpper(p.Name[0]));
+            var attackedPeople = DataContext.AttackedPeople
+                .Where(p => !string.IsNullOrEmpty(p.Name) && 
+                            !char.IsDigit(p.Name[0]) && 
+                            char.IsUpper(p.Name[0]));
 
             var result = fatalAttacks
                 .Join(countries,
                     sa => sa.attack.CountryId,
                     country => country.Id,
                     (sa, country) => new { sa, country })
-                .Join(people,
+                .Join(attackedPeople,
                     sac => sac.sa.attack.AttackedPersonId,
                     person => person.Id,
                     (sac, person) => new { Shark = sac.sa.species, Country = sac.country, Person = person })
@@ -403,27 +404,25 @@ namespace PV178.Homeworks.HW03
                 .Where(c => c.Continent == "Europe" && c.Name?[0] >= 'A' && c.Name?[0] <= 'L');
 
             var europeanAttacks = DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity != AttackSeverenity.Unknown)
                 .Join(europeanCountries,
                     attack => attack.CountryId,
                     country => country.Id,
-                    (attack, country) => new { Attack = attack, Country = country })
-                .Where(a => a.Attack.AttackSeverenity != AttackSeverenity.Unknown);
+                    (attack, country) => new { attack, country });
 
-            var fines = europeanAttacks
-                .GroupBy(a => a.Country)
+            var result = europeanAttacks
+                .GroupBy(a => a.country)
                 .Select(group => new
                 {
-                    Country = group.Key,
-                    Fine = group.Sum(a => a.Attack.AttackSeverenity == AttackSeverenity.NonFatal ? 250 : 300)
+                    CountryName = group.Key.Name,
+                    Fine = group.Sum(a => a.attack.AttackSeverenity == AttackSeverenity.NonFatal ? 250 : 300),
+                    group.Key.CurrencyCode
                 })
                 .OrderByDescending(cf => cf.Fine)
-                .Select(cf => $"{cf.Country.Name}: {cf.Fine} {cf.Country.CurrencyCode}")
+                .Select(cfc => $"{cfc.CountryName}: {cfc.Fine} {cfc.CurrencyCode}")
                 .ToList();
 
-            foreach (var array in fines) 
-                Console.WriteLine(string.Join(" ", array));
-            
-            return fines;
+            return result;
         }
 
         /// <summary>
