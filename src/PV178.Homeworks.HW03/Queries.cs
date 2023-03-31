@@ -442,27 +442,24 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public Dictionary<string, int> FiveSharkNamesWithMostFatalitiesQuery()
         {
-            var fatalAttack = DataContext.SharkAttacks
+            var fatalAttacks = DataContext.SharkAttacks
                 .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal);
 
-            var result = fatalAttack
+            var result = fatalAttacks
                 .Join(DataContext.SharkSpecies,
                     attack => attack.SharkSpeciesId,
                     species => species.Id,
-                    (attack, species) => new { Attack = attack, Species = species })
-                .GroupBy(a => a.Species)
+                    (_, species) => species )
+                .GroupBy(ss => ss)
                 .Select(group => new
                 {
-                    Species = group.Key,
-                    AttackCount = group.Count()
+                    SpeciesName = group.Key.Name ?? string.Empty,
+                    fatalAttacksCount = group.Count()
                 })
-                .OrderByDescending(sa => sa.AttackCount)
+                .OrderByDescending(sa => sa.fatalAttacksCount)
                 .Take(5)
-                .ToDictionary(sa => sa.Species.Name!, sa => sa.AttackCount);
-
-            foreach (var array in result.ToList()) 
-                Console.WriteLine(string.Join(" ", array));
-
+                .ToDictionary(sa => sa.SpeciesName, sa => sa.fatalAttacksCount);
+            
             return result;
         }
 
@@ -484,23 +481,19 @@ namespace PV178.Homeworks.HW03
         public string StatisticsAboutGovernmentsQuery()
         {
             var countriesCount = DataContext.Countries.Count;
-            
-            var governmentType = DataContext.Countries
+
+            var governmentForm = DataContext.Countries
                 .GroupBy(c => c.GovernmentForm)
                 .Select(group => new
                 {
                     GovernmentForm = group.Key,
-                    Count = (double) group.Count() 
+                    Count = group.Count()
                 })
-                .ToList();
-
-            var result = governmentType
-                .OrderByDescending(g => g.Count)
-                .Select(g => $"{g.GovernmentForm}: {Math.Round(g.Count / countriesCount * 100, 1):F1}%")
-                .Aggregate((acc, curr) => $"{acc}, {curr}");
-
-
-            Console.WriteLine(result);
+                .OrderByDescending(g => g.Count);
+            
+            var result = governmentForm
+                .Select(g => $"{g.GovernmentForm}: {Math.Round((double) g.Count / countriesCount * 100, 1):F1}%")
+                .Aggregate((accumulator, currentForm) => $"{accumulator}, {currentForm}");
 
             return result;
         }
