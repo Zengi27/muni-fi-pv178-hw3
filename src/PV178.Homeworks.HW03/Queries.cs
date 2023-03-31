@@ -536,36 +536,19 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> TigerSharkAttackZipQuery()
         {
-            var sharkAttack = DataContext.SharkAttacks
-                .Where(a => a.DateTime.Value.Year == 2001);
+            var tigerSharkAttack = DataContext.SharkAttacks
+                .Where(a => a.DateTime != null 
+                            && a.DateTime.Value.Year == 2001 
+                            && DataContext.SharkSpecies.Any(ss => a.SharkSpeciesId == ss.Id && ss.Name == "Tiger shark"));
 
-            var tigerSharkAttack = sharkAttack
-                .Where(a => DataContext.SharkSpecies.Any(ss => a.SharkSpeciesId == ss.Id && ss.Name == "Tiger shark"))
-                .ToList();
-
-            // foreach (var array in tigerSharkAttack) 
-            //     Console.WriteLine(string.Join(" ", array));
-            
             var attackedPerson = DataContext.AttackedPeople
-                .Where(p => tigerSharkAttack.Any(tsa => tsa.AttackedPersonId == p.Id))
-                .Select(p => new
-                {
-                    Name = p.Name,
-                    PersonId = p.Id
-                });
-
-            // foreach (var array in attackedPerson) 
-            //     Console.WriteLine(string.Join(" ", array));
-
+                .Where(p => tigerSharkAttack.Any(tsa => tsa.AttackedPersonId == p.Id));
 
             var countries = tigerSharkAttack
                 .Select(a => new
                 {
                     Country = DataContext.Countries.FirstOrDefault(c => c.Id == a.CountryId)?.Name ?? "Unknown country"
                 });
-            
-            // foreach (var array in countries.ToList()) 
-            //     Console.WriteLine(string.Join(" ", array));
             
             var result = attackedPerson.Zip(countries, (p, c) => new
                 {
@@ -574,10 +557,6 @@ namespace PV178.Homeworks.HW03
                 })
                 .Select(pc => $"{pc.AttackedPerson.Name} was tiggered in {pc.CountryName}")
                 .ToList();
-            
-            // foreach (var array in result) 
-            //     Console.WriteLine(string.Join(" ", array));
-
 
             return result;
         }
