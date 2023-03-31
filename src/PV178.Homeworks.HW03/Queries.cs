@@ -177,18 +177,28 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<int> ThreeSharksOrderedByNumberOfAttacksOnMenQuery()
         {
-            return DataContext.SharkAttacks
-                .Join(DataContext.AttackedPeople,
-                    attack => attack.AttackedPersonId,
+            var menAttacks = DataContext.AttackedPeople
+                .Where(p => p.Sex == Sex.Male)
+                .Join(DataContext.SharkAttacks,
                     person => person.Id,
-                    (attack, person) => new { attack, person }
-                )
-                .Where(ac => ac.person.Sex == Sex.Male)
-                .GroupBy(sc => sc.attack.SharkSpeciesId)
-                .OrderByDescending(group => group.Count())
+                    attack => attack.AttackedPersonId,
+                    (person, attack) => new { person, attack });
+
+            var result = DataContext.SharkSpecies
+                .GroupJoin(menAttacks,
+                    species => species.Id,
+                    pa => pa.attack.SharkSpeciesId,
+                    (species, pa) => new
+                    {
+                        Species = species,
+                        AttackCount = pa.Count()
+                    })
+                .OrderByDescending(sa => sa.AttackCount)
                 .Take(3)
-                .Select(group => group.Key)
+                .Select(sa => sa.Species.Id)
                 .ToList();
+            
+            return result;
         }
 
         /// <summary>
@@ -206,22 +216,26 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public Dictionary<string, double> SwimmerAttacksSharkAverageSpeedQuery()
         {
-            return DataContext.SharkAttacks
-                .Where(a => a.Activity.Contains("Swimming") || a.Activity.Contains("swimming"))
+            var sharkAttacks = DataContext.SharkAttacks
+                .Where(a => a.Activity != null && a.Activity.ToLower().Contains("swimming"));
+
+            var result = DataContext.SharkSpecies
+                .Where(s => s.TopSpeed.HasValue)
+                .Join(sharkAttacks,
+                    species => species.Id,
+                    attack => attack.SharkSpeciesId,
+                    (species, attack) => new { species, attack })
                 .Join(DataContext.Countries,
-                    a => a.CountryId,
-                    c => c.Id,
-                    (a, c) => new { a, c }
-                )
-                .Join(DataContext.SharkSpecies,
-                    ac => ac.a.SharkSpeciesId,
-                    s => s.Id,
-                    (ac, s) => new { ac, s }
-                )
-                .Where(acs => acs.s.TopSpeed.HasValue)
-                .GroupBy(acs => acs.ac.c.Continent)
-                .ToDictionary(group => group.Key,
-                    group => Math.Round(group.Average(acs => acs.s.TopSpeed.Value), 2));
+                    sa => sa.attack.CountryId,
+                    country => country.Id,
+                    (sa, country) => new { sa.species, country })
+                .GroupBy(sc => sc.country.Continent)
+                .ToDictionary(
+                    group => group.Key,
+                    group => Math.Round(group.Average(sc => sc.species.TopSpeed.Value), 2)
+                    );
+
+            return result;
         }
 
         /// <summary>
@@ -237,24 +251,32 @@ namespace PV178.Homeworks.HW03
         /// <returns>The query result</returns>
         public List<string> NonFatalAttemptOfZambeziSharkOnPeopleBetweenDAndKQuery()
         {
-            return DataContext.SharkAttacks
-                .Where(a => a.AttackSeverenity == AttackSeverenity.NonFatal
-                            && a.Type == AttackType.Boating
-                            && a.DateTime >= new DateTime(1960, 3, 3))
-                .Join(DataContext.SharkSpecies,
-                    a => a.SharkSpeciesId,
-                    s => s.Id,
-                    (a, s) => new { a, s }
-                )
-                .Where(sa => sa.s.AlsoKnownAs == "Zambesi shark")
-                .Join(DataContext.AttackedPeople,
-                    sa => sa.a.AttackedPersonId,
-                    p => p.Id,
-                    (sa, p) => new { sa, p }
-                )
-                .Where(sp => sp.p.Name[0] >= 'D' && sp.p.Name[0] <= 'K')
-                .Select(sp => sp.p.Name)
+            var zambesiShark = DataContext.SharkSpecies
+                .Where(ss => ss.AlsoKnownAs == "Zambesi shark");
+
+            var attacks = DataContext.SharkAttacks
+                .Where(a => a.AttackSeverenity == AttackSeverenity.NonFatal 
+                            && a.Type == AttackType.Boating 
+                            && a.DateTime >= new DateTime(1960, 3, 3));
+
+            var people = DataContext.AttackedPeople
+                .Where(p => p.Name != null
+                            && p.Name[0] >= 'D' 
+                            && p.Name[0] <= 'K');
+
+            var result = zambesiShark
+                .Join(attacks,
+                    species => species.Id,
+                    attack => attack.SharkSpeciesId,
+                    (species, attack) => new { species, attack })
+                .Join(people,
+                    sa => sa.attack.AttackedPersonId,
+                    person => person.Id,
+                    (_, person) => person)
+                .Select(p => p.Name)
                 .ToList();
+
+            return result;
         }
 
         /// <summary>
@@ -451,7 +473,10 @@ namespace PV178.Homeworks.HW03
                 })
                 .OrderByDescending(sa => sa.fatalAttacksCount)
                 .Take(5)
-                .ToDictionary(sa => sa.SpeciesName, sa => sa.fatalAttacksCount);
+                .ToDictionary(
+                    sa => sa.SpeciesName, 
+                    sa => sa.fatalAttacksCount
+                    );
             
             return result;
         }
