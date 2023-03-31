@@ -118,52 +118,36 @@ namespace PV178.Homeworks.HW03
         public Dictionary<string, string> MostProlificNicknamesInCountriesQuery()
         {
             var southAmericaCountries = DataContext.Countries
-                .Where(c => c.Continent == "South America");
-            var sharkNicknames = southAmericaCountries
-                    .Join(DataContext.SharkAttacks,
-                        country => country.Id,
-                        attack => attack.CountryId,
-                        ((country, attack) => new { country, attack } ))
-                    .Join(DataContext.SharkSpecies,
-                        ca => ca.attack.SharkSpeciesId,
-                        species => species.Id,
-                        (ca, species) => new { Country = ca.country, Shark = species})
-                    .GroupBy(attack => attack.Country.Name)
-                    .Where(group => group
+                .Where(c => c.Name != null && c.Continent == "South America");
+
+            var sharkSpecies = DataContext.SharkSpecies
+                .Where(ss => !string.IsNullOrEmpty(ss.AlsoKnownAs));
+
+            var result = southAmericaCountries
+                .Join(DataContext.SharkAttacks,
+                    country => country.Id,
+                    attack => attack.CountryId,
+                    (country, attack) => new { country, attack } )
+                .Join(sharkSpecies,
+                    ca => ca.attack.SharkSpeciesId,
+                    species => species.Id,
+                    (ca, species) => new { Country = ca.country, Shark = species})
+                .GroupBy(attack => attack.Country.Name)
+                .Select(group => new
+                {
+                    Country = group.Key,
+                    SharkNickname = group
                         .GroupBy(cs => cs.Shark.AlsoKnownAs)
-                        .Any(speciesGroup => !string.IsNullOrEmpty(speciesGroup.Key)))
-                    .ToDictionary(
-                        group => group.Key,
-                        group => group
-                            .GroupBy(cs => cs.Shark.AlsoKnownAs)
-                            .OrderByDescending(speciesGroup => speciesGroup.Count())
-                            .ThenBy(speciesGroup => speciesGroup.Key)
-                            .FirstOrDefault(speciesGroup => !string.IsNullOrEmpty(speciesGroup.Key))
-                            ?.Key
+                        .OrderByDescending(groupSpecies => groupSpecies.Count())
+                        .Select(groupSpecies => groupSpecies.Key)
+                        .FirstOrDefault()
+                })
+                .ToDictionary(
+                    cs => cs.Country, 
+                    cs => cs.SharkNickname
                     );
-            //         
-            //         .GroupBy(cs => new { cs.Country, cs.Shark.AlsoKnownAs })
-            //         .Select(group => new
-            //         {
-            //             CountryName = group.Key.Country.Name,
-            //             SharkNickname = group.Key.AlsoKnownAs,
-            //             AttackCount = group.Count()
-            //         })
-            //         .FirstOrDefault(group => !string.IsNullOrEmpty(group.SharkNickname))
-            //         .GroupBy(x => x.CountryName)
-            //         .Select(group => group.OrderByDescending(x => x.AttackCount).First())
-            //         .ToDictionary(x => x.CountryName, x => x.SharkNickname);
-            //
-            //
-            //     .
-            //
-            // FirstOrDefault(speciesGroup => !string.IsNullOrEmpty(speciesGroup.Key) || speciesGroup == group.First())
-            //     ?.Key
-            foreach (KeyValuePair<string, string> pair in sharkNicknames)
-            {
-                Console.WriteLine("{0}: {1}", pair.Key, pair.Value);
-            }
-            return sharkNicknames;
+
+            return result;
         }
 
         /// <summary>
