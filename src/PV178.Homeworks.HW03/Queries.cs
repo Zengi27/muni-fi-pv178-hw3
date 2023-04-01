@@ -118,7 +118,7 @@ namespace PV178.Homeworks.HW03
         public Dictionary<string, string> MostProlificNicknamesInCountriesQuery()
         {
             var southAmericaCountries = DataContext.Countries
-                .Where(c => c.Name != null && c.Continent == "South America");
+                .Where(c => !string.IsNullOrEmpty(c.Name) && c.Continent == "South America");
 
             var sharkSpecies = DataContext.SharkSpecies
                 .Where(ss => !string.IsNullOrEmpty(ss.AlsoKnownAs));
@@ -136,15 +136,15 @@ namespace PV178.Homeworks.HW03
                 .Select(group => new
                 {
                     Country = group.Key,
-                    SharkNickname = group
+                    AlsoKnownAs = group
                         .GroupBy(cs => cs.Shark.AlsoKnownAs)
                         .OrderByDescending(groupSpecies => groupSpecies.Count())
                         .Select(groupSpecies => groupSpecies.Key)
                         .FirstOrDefault()
                 })
                 .ToDictionary(
-                    cs => cs.Country, 
-                    cs => cs.SharkNickname
+                    cs => cs.Country!, 
+                    cs => cs.AlsoKnownAs!
                     );
 
             return result;
@@ -209,14 +209,14 @@ namespace PV178.Homeworks.HW03
                     species => species.Id,
                     attack => attack.SharkSpeciesId,
                     (species, attack) => new { species, attack })
-                .Join(DataContext.Countries,
+                .Join(DataContext.Countries.Where(c => !string.IsNullOrEmpty(c.Continent)),
                     sa => sa.attack.CountryId,
                     country => country.Id,
                     (sa, country) => new { sa.species, country })
                 .GroupBy(sc => sc.country.Continent)
                 .ToDictionary(
-                    group => group.Key,
-                    group => Math.Round(group.Average(sc => sc.species.TopSpeed.Value), 2)
+                    group => group.Key!,
+                    group => Math.Round(group.Average(sc => sc.species.TopSpeed!.Value), 2)
                     );
 
             return result;
@@ -257,7 +257,7 @@ namespace PV178.Homeworks.HW03
                     sa => sa.attack.AttackedPersonId,
                     person => person.Id,
                     (_, person) => person)
-                .Select(p => p.Name)
+                .Select(p => p.Name!)
                 .ToList();
 
             return result;
@@ -285,11 +285,11 @@ namespace PV178.Homeworks.HW03
                     (species, attack) => new { species, attack });
 
             var southAmericanCountries = DataContext.Countries
-                .Where(c => c.Continent == "South America");
+                .Where(c => !string.IsNullOrEmpty(c.Name) && c.Continent == "South America");
             
             var result = southAmericanCountries
                 .Select(country => new Tuple<string, List<SharkSpecies>>(
-                    country.Name ?? string.Empty,
+                    country.Name!,
                     lightestSharksAttacks
                         .Where(sa => sa.attack.CountryId == country.Id)
                         .Select(sa => sa.species)
@@ -350,7 +350,7 @@ namespace PV178.Homeworks.HW03
                     (attack, species) => new { attack, species });
 
             var countries = DataContext.Countries
-                .Where(c => c.Name != null && 
+                .Where(c => !string.IsNullOrEmpty(c.Name) && 
                             (c.Name.StartsWith('B') || c.Name.StartsWith('R')));
 
             var attackedPeople = DataContext.AttackedPeople
@@ -367,7 +367,7 @@ namespace PV178.Homeworks.HW03
                     sac => sac.sa.attack.AttackedPersonId,
                     person => person.Id,
                     (sac, person) => new { Shark = sac.sa.species, Country = sac.country, Person = person })
-                .Select(sacp => $"{sacp.Person.Name} was attacked in {sacp.Country.Name} by {sacp.Shark.LatinName}")
+                .Select(scp => $"{scp.Person.Name} was attacked in {scp.Country.Name} by {scp.Shark.LatinName}")
                 .OrderBy(s => s)
                 .Take(5)
                 .ToList();
@@ -445,14 +445,14 @@ namespace PV178.Homeworks.HW03
                 .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal);
 
             var result = fatalAttacks
-                .Join(DataContext.SharkSpecies,
+                .Join(DataContext.SharkSpecies.Where(s => !string.IsNullOrEmpty(s.Name)),
                     attack => attack.SharkSpeciesId,
                     species => species.Id,
                     (_, species) => species )
                 .GroupBy(ss => ss)
                 .Select(group => new
                 {
-                    SpeciesName = group.Key.Name ?? string.Empty,
+                    SpeciesName = group.Key.Name!,
                     fatalAttacksCount = group.Count()
                 })
                 .OrderByDescending(sa => sa.fatalAttacksCount)
@@ -589,12 +589,13 @@ namespace PV178.Homeworks.HW03
                 .Where(a => a.AttackSeverenity == AttackSeverenity.Fatal);
 
             var result = DataContext.Countries
+                .Where(c => !string.IsNullOrEmpty(c.Name))
                 .GroupJoin(fatalSharkAttacks,
                     country => country.Id,
                     attack => attack.CountryId,
                     (country, fatalAttack) => new { country, fatalAttack })
                 .Where(ca =>  !ca.fatalAttack.Any())
-                .Select(ca => ca.country.Name)
+                .Select(ca => ca.country.Name!)
                 .Count();
 
             return result;
